@@ -1,7 +1,7 @@
 import graphene
 from graphql.language.ast import VariableNode, ArgumentNode, ListValueNode, ValueNode, ObjectValueNode
 
-from base import types
+from autographql import types
 
 
 def get_meta(meta, attribute, default):
