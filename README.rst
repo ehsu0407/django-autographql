@@ -1,6 +1,6 @@
-=====
+========================
 autographql
-=====
+========================
 
 autographql is a Django app to automatically generate a GraphQL api from
 Django models.
@@ -8,14 +8,14 @@ Django models.
 Detailed documentation is in the "docs" directory.
 
 Features
------------
+------------------------
 
 - Automatic optimization of querysets to prevent N+1 lookups
 - Record level permissions system provided by Bridgekeeper integration
 - Easily extended automatic filters based on django Lookups
 
 Quick start
------------
+------------------------
 
 1. Add "autographql", "graphene_django, and "bridgekeeper" to your INSTALLED_APPS setting like this::
 
@@ -102,7 +102,7 @@ Quick start
    to view your fully featured graphql api!
 
 Related Projects
------------
+------------------------
 
 - graphene (https://github.com/graphql-python/graphene)
 - graphene-django (https://github.com/graphql-python/graphene-django)
