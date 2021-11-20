@@ -1,7 +1,7 @@
 from functools import partial
 
 from django.db.models import Model, QuerySet
-from graphene import Field
+from graphene import Field, Dynamic
 from graphene_django import DjangoObjectType, DjangoConnectionField
 
 from autographql.types import OrderByType
@@ -13,8 +13,7 @@ class AutoDjangoConnectionField(DjangoConnectionField):
     """
     def __init__(self, type_, *args, **kwargs):
         kwargs.setdefault('orderBy', OrderByType())
-        filter_input_type = type_._meta.filter_input_type
-        kwargs.setdefault('where', filter_input_type())
+        kwargs.setdefault('where', Dynamic(lambda: type_._meta.filter_input_type()))
         super().__init__(type_, *args, **kwargs)
 
 

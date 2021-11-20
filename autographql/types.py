@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from functools import cached_property
 
 import graphene
 from django.db.models import Manager
@@ -7,8 +8,9 @@ from graphene_django import DjangoObjectType
 from graphene_django.types import ErrorType as _ErrorType, DjangoObjectTypeOptions, construct_fields
 
 from graphene_django.filter.utils import get_filtering_args_from_filterset
+from graphene_django.utils import get_model_fields
 
-from autographql.filters.utils import convert_model_to_input_type
+from autographql.filters.types import AuthAutoFilterInputObjectType
 from autographql.optimizer import query
 
 
@@ -23,7 +25,16 @@ class OrderByType(List):
 
 
 class AutoDjangoObjectTypeOptions(DjangoObjectTypeOptions):
-    filter_type = None
+    input_fields = None
+
+    @cached_property
+    def filter_input_type(self):
+        return type(self.model.__name__ + 'FilterInput', (AuthAutoFilterInputObjectType,), {
+            'Meta': {
+                'model': self.model,
+                'input_fields': self.input_fields,
+            },
+        })
 
 
 class AutoDjangoObjectType(DjangoObjectType):
@@ -57,8 +68,10 @@ class AutoDjangoObjectType(DjangoObjectType):
             _meta = AutoDjangoObjectTypeOptions(cls)
 
         django_fields = construct_fields(model, registry, fields, exclude, convert_choices_to_enum)
-        input_type = convert_model_to_input_type(model, registry, django_fields)
-        _meta.filter_input_type = input_type
+        model_fields = get_model_fields(model)
+        # We only will include fields that are included in the model type to avoid exposing anything we shouldn't
+        model_fields = filter(lambda m: m[0] in django_fields.keys(), model_fields)
+        _meta.input_fields = [f[0] for f in model_fields]
 
         super().__init_subclass_with_meta__(
             model=model,
