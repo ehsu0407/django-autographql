@@ -25,9 +25,8 @@ from autographql.utils import to_pascal_case
 logger = logging.getLogger(__name__)
 
 
-class AuthAutoInputObjectTypeOptions(InputObjectTypeOptions):
+class ModelAutoFilterInputObjectTypeOptions(InputObjectTypeOptions):
     model = None
-    input_fields = None
 
 
 class AutoFilterInputObjectType(graphene.InputObjectType):
@@ -119,15 +118,15 @@ class AutoFilterInputObjectType(graphene.InputObjectType):
         return lookups
 
 
-class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
+class ModelAutoFilterInputObjectType(AutoFilterInputObjectType):
     """
     Input object that only allows users who have permission to view the model to
     use it as a filter.
     """
     @classmethod
-    def __init_subclass_with_meta__(cls, input_fields=None, model=None, container=None, _meta=None, **options):
+    def __init_subclass_with_meta__(cls, fields=None, model=None, container=None, _meta=None, **options):
         if not _meta:
-            _meta = AuthAutoInputObjectTypeOptions(cls)
+            _meta = ModelAutoFilterInputObjectTypeOptions(cls)
 
         if not model:
             raise RuntimeError('model is required in Meta class for {0}'.format(cls))
@@ -139,32 +138,31 @@ class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
             model_type = registry.get_type_for_model(model)
             return model_type._meta.filter_input_type
 
-        fields = {}
-        fields['and'] = InputField.mounted(LogicalAndInputField(
+        input_fields = {}
+        input_fields['and'] = InputField.mounted(LogicalAndInputField(
             name='_and',
             of_type=get_self_input_type,
         ))
-        fields['or'] = InputField.mounted(LogicalOrInputField(
+        input_fields['or'] = InputField.mounted(LogicalOrInputField(
             name='_or',
             of_type=get_self_input_type,
         ))
-        fields['not'] = InputField.mounted(LogicalNotInputField(
+        input_fields['not'] = InputField.mounted(LogicalNotInputField(
             get_self_input_type,
             name='_not',
         ))
 
         model_fields = get_model_fields(model)
-        model_fields = filter(lambda m: m[0] in input_fields, model_fields)
+        model_fields = filter(lambda m: m[0] in fields.keys(), model_fields)
         for name, field in model_fields:
             n, f = cls._get_filter_input(registry, model, field, name=model.__name__)
-            fields[n] = f
+            input_fields[n] = f
         _meta.model = model
-        _meta.input_fields = input_fields
 
         if _meta.fields:
-            _meta.fields.update(fields)
+            _meta.fields.update(input_fields)
         else:
-            _meta.fields = fields
+            _meta.fields = input_fields
 
         super().__init_subclass_with_meta__(container=None, _meta=_meta, **options)
 
@@ -230,7 +228,7 @@ class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
                 )
             )
 
-        raise RuntimeError('Failed generate filter tree')
+        raise RuntimeError('Failed to generate filter tree')
 
     def get_q_lookup(self, user=None):
         lookups = self._get_lookups(user=user)
@@ -241,6 +239,7 @@ class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
         lookups = super()._get_lookups(lookup_path, user=user)
         if not lookups:
             return lookups
+
         # Permission check
         permission = get_model_permission(self._meta.model, VIEW)
         logger.debug('Checking permission {0} for user [{1}] to use filter [{2}]'.format(permission, user, self.__class__))

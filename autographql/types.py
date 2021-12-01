@@ -10,7 +10,7 @@ from graphene_django.types import ErrorType as _ErrorType, DjangoObjectTypeOptio
 from graphene_django.filter.utils import get_filtering_args_from_filterset
 from graphene_django.utils import get_model_fields
 
-from autographql.filters.types import AuthAutoFilterInputObjectType
+from autographql.filters.types import ModelAutoFilterInputObjectType
 from autographql.optimizer import query
 
 
@@ -25,14 +25,12 @@ class OrderByType(List):
 
 
 class AutoDjangoObjectTypeOptions(DjangoObjectTypeOptions):
-    input_fields = None
-
     @cached_property
     def filter_input_type(self):
-        return type(self.model.__name__ + 'FilterInput', (AuthAutoFilterInputObjectType,), {
+        return type(self.model.__name__ + 'FilterInput', (ModelAutoFilterInputObjectType,), {
             'Meta': {
                 'model': self.model,
-                'input_fields': self.input_fields,
+                'fields': self.fields,
             },
         })
 
@@ -47,47 +45,13 @@ class AutoDjangoObjectType(DjangoObjectType):
     @classmethod
     def __init_subclass_with_meta__(
             cls,
-            model=None,
-            registry=None,
-            skip_registry=False,
-            only_fields=None,  # deprecated in favour of `fields`
-            fields=None,
-            exclude_fields=None,  # deprecated in favour of `exclude`
-            exclude=None,
-            filter_fields=None,
-            filterset_class=None,
-            connection=None,
-            connection_class=None,
-            use_connection=None,
-            interfaces=(),
-            convert_choices_to_enum=True,
             _meta=None,
             **options
     ):
         if not _meta:
             _meta = AutoDjangoObjectTypeOptions(cls)
 
-        django_fields = construct_fields(model, registry, fields, exclude, convert_choices_to_enum)
-        model_fields = get_model_fields(model)
-        # We only will include fields that are included in the model type to avoid exposing anything we shouldn't
-        model_fields = filter(lambda m: m[0] in django_fields.keys(), model_fields)
-        _meta.input_fields = [f[0] for f in model_fields]
-
         super().__init_subclass_with_meta__(
-            model=model,
-            registry=registry,
-            skip_registry=skip_registry,
-            only_fields=only_fields,  # deprecated in favour of `fields`
-            fields=fields,
-            exclude_fields=exclude_fields,  # deprecated in favour of `exclude`
-            exclude=exclude,
-            filter_fields=filter_fields,
-            filterset_class=filterset_class,
-            connection=connection,
-            connection_class=connection_class,
-            use_connection=use_connection,
-            interfaces=interfaces,
-            convert_choices_to_enum=convert_choices_to_enum,
             _meta=_meta,
             **options
         )
