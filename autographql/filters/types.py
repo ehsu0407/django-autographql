@@ -9,6 +9,7 @@ from django.db.models import Q, Transform, Lookup
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.query_utils import RegisterLookupMixin
 from graphene import InputField, List, Dynamic
+from graphene.types.enum import EnumMeta
 from graphene.types.inputobjecttype import InputObjectTypeOptions
 from graphene.types.scalars import ScalarOptions
 from graphene_django.registry import get_global_registry
@@ -93,6 +94,11 @@ class AutoFilterInputObjectType(graphene.InputObjectType):
                 lookups.append((cur_path, attr_value))
                 continue
 
+            if isinstance(field.type, EnumMeta):
+                # Base case, enum type
+                lookups.append((cur_path, attr_value.value))
+                continue
+
             if isinstance(attr_value, AutoFilterInputObjectType):
                 # Recursive call to get the lookups
                 child_lookups = attr_value._get_lookups(cur_path, **kwargs)
@@ -107,6 +113,8 @@ class AutoFilterInputObjectType(graphene.InputObjectType):
                     operator_lookups[operator] += child_lookups
                 lookups.append(operator_lookups)
                 continue
+
+            raise RuntimeError('Unknown lookup field type found: {0}'.format(str(field.type)))
 
         return lookups
 
