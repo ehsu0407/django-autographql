@@ -4,8 +4,8 @@ from inspect import isclass
 
 import graphene
 from bridgekeeper import perms
-from django.core.exceptions import PermissionDenied
-from django.db.models import Q, Field, Transform, Lookup, ForeignObjectRel
+from django.core.exceptions import PermissionDenied, ImproperlyConfigured
+from django.db.models import Q, Transform, Lookup
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.query_utils import RegisterLookupMixin
 from graphene import InputField, List, Dynamic
@@ -135,17 +135,14 @@ class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
         fields['and'] = InputField.mounted(LogicalAndInputField(
             name='_and',
             of_type=get_self_input_type,
-            description='Logical AND is applied to all filters in the contained list.'
         ))
         fields['or'] = InputField.mounted(LogicalOrInputField(
             name='_or',
             of_type=get_self_input_type,
-            description='Logical OR is applied to all filters in the contained list.'
         ))
         fields['not'] = InputField.mounted(LogicalNotInputField(
             get_self_input_type,
             name='_not',
-            description='Logical NOT is applied to the result of contained the filter.'
         ))
 
         model_fields = get_model_fields(model)
@@ -164,6 +161,14 @@ class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
         super().__init_subclass_with_meta__(container=None, _meta=_meta, **options)
 
     @classmethod
+    def _convert_input_type_from_lookup(cls, dummy, field):
+        try:
+            return get_input_type_from_lookup(dummy, field)
+        except ImproperlyConfigured as e:
+            logger.warning(str(e))
+            return None, None
+
+    @classmethod
     def _get_filter_input(cls, registry, model, node, name, field=None):
         """Recursive helper to generate the input filters"""
         # Base case, dynamic field
@@ -173,20 +178,21 @@ class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
         # Base case, field is of a lookup type
         if isclass(node) and issubclass(node, Lookup):
             dummy = node.__new__(node)
-            return get_input_type_from_lookup(dummy, field)
+            return cls._convert_input_type_from_lookup(dummy, field)
 
         # field registers transforms
         if isclass(node) and issubclass(node, Transform):
             lookups = node.get_lookups()
             if not lookups:
                 dummy = node.__new__(node)
-                return get_input_type_from_lookup(dummy, field)
+                return cls._convert_input_type_from_lookup(dummy, field)
 
             lookup_fields = {}
             for lookup_name, lookup in lookups.items():
                 next_name = name + to_pascal_case(lookup_name)
                 n, f = cls._get_filter_input(registry, model, lookup, name=next_name, field=lookup)
-                lookup_fields[n] = f
+                if f:
+                    lookup_fields[n] = f
 
             return node.lookup_name, graphene.InputField(
                 type(
@@ -205,7 +211,8 @@ class AuthAutoFilterInputObjectType(AutoFilterInputObjectType):
             lookups = node.get_lookups()
             for lookup in lookups.values():
                 n, f = cls._get_filter_input(registry, model, lookup, name=next_name, field=node)
-                lookup_fields[n] = f
+                if f:
+                    lookup_fields[n] = f
 
             return field_name, graphene.InputField(
                 type(
