@@ -8,26 +8,29 @@ from graphene_django import DjangoObjectType
 from graphene_django.types import ErrorType as _ErrorType, DjangoObjectTypeOptions, construct_fields
 
 from graphene_django.filter.utils import get_filtering_args_from_filterset
-from graphene_django.utils import get_model_fields
 
 from autographql.filters.types import ModelAutoFilterInputObjectType
 from autographql.optimizer import query
+from autographql.orderby.types import ModelAutoOrderByInputObjectType
 
 
 class ErrorType(_ErrorType):
     errors = graphene.List(lambda: ErrorType)
 
 
-class OrderByType(List):
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault('of_type', String)
-        super().__init__(*args, **kwargs)
-
-
 class AutoDjangoObjectTypeOptions(DjangoObjectTypeOptions):
     @cached_property
     def filter_input_type(self):
         return type(self.model.__name__ + 'FilterInput', (ModelAutoFilterInputObjectType,), {
+            'Meta': {
+                'model': self.model,
+                'fields': self.fields,
+            },
+        })
+
+    @cached_property
+    def orderby_input_type(self):
+        return type(self.model.__name__ + 'OrderByInput', (ModelAutoOrderByInputObjectType,), {
             'Meta': {
                 'model': self.model,
                 'fields': self.fields,

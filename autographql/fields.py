@@ -4,15 +4,13 @@ from django.db.models import Model, QuerySet
 from graphene import Field, Dynamic
 from graphene_django import DjangoObjectType, DjangoConnectionField
 
-from autographql.types import OrderByType
-
 
 class AutoDjangoConnectionField(DjangoConnectionField):
     """
     Customized DjangoConnectionField to add order and filter fields
     """
     def __init__(self, type_, *args, **kwargs):
-        kwargs.setdefault('orderBy', OrderByType())
+        kwargs.setdefault('order_by', Dynamic(lambda: type_._meta.orderby_input_type()))
         kwargs.setdefault('where', Dynamic(lambda: type_._meta.filter_input_type()))
         super().__init__(type_, *args, **kwargs)
 

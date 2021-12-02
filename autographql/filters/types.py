@@ -19,10 +19,16 @@ from autographql.auth.utils import get_model_permission, VIEW
 from autographql.filters.converters import get_input_type_from_lookup
 from autographql.filters.fields import LogicalInputField, AND, OR, NOT, LogicalAndInputField, LogicalOrInputField, \
     LogicalNotInputField
-from autographql.filters.utils import get_input_type
 from autographql.utils import to_pascal_case
 
 logger = logging.getLogger(__name__)
+
+
+def get_input_type(field):
+    registry = get_global_registry()
+    related_model = field.related_model
+    model_type = registry.get_type_for_model(related_model)
+    return model_type._meta.filter_input_type
 
 
 class ModelAutoFilterInputObjectTypeOptions(InputObjectTypeOptions):
@@ -124,12 +130,13 @@ class ModelAutoFilterInputObjectType(AutoFilterInputObjectType):
     use it as a filter.
     """
     @classmethod
-    def __init_subclass_with_meta__(cls, fields=None, model=None, container=None, _meta=None, **options):
+    def __init_subclass_with_meta__(cls, fields=None, model=None, _meta=None, **options):
         if not _meta:
             _meta = ModelAutoFilterInputObjectTypeOptions(cls)
 
         if not model:
             raise RuntimeError('model is required in Meta class for {0}'.format(cls))
+        _meta.model = model
 
         registry = get_global_registry()
 
@@ -157,14 +164,13 @@ class ModelAutoFilterInputObjectType(AutoFilterInputObjectType):
         for name, field in model_fields:
             n, f = cls._get_filter_input(registry, model, field, name=model.__name__)
             input_fields[n] = f
-        _meta.model = model
 
         if _meta.fields:
             _meta.fields.update(input_fields)
         else:
             _meta.fields = input_fields
 
-        super().__init_subclass_with_meta__(container=None, _meta=_meta, **options)
+        super().__init_subclass_with_meta__(_meta=_meta, **options)
 
     @classmethod
     def _convert_input_type_from_lookup(cls, dummy, field):
