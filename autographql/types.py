@@ -93,15 +93,20 @@ class AutoDjangoObjectType(DjangoObjectType):
         # Apply where filters if they exist
         if 'where' in args and args['where']:
             filter_input = args['where']
-            user = info.context.user
-            lookup = filter_input.get_q_lookup(user)
+            lookup = filter_input.get_q_lookup(context=info.context)
             if lookup:
                 queryset = queryset.filter(lookup)
 
         # Apply order by if it exists
-        if 'orderBy' in args and args['orderBy']:
-            order_by_input = args['orderBy']
-            queryset = queryset.order_by(*order_by_input)
+        if 'order_by' in args and args['order_by']:
+            order_by_input = args['order_by']
+            order_by = []
+            for obi in order_by_input:
+                ob = obi.get_order_by(context=info.context)
+                if ob:
+                    order_by.append(ob)
+            if order_by:
+                queryset = queryset.order_by(*order_by)
 
         if isinstance(queryset, Manager):
             queryset = queryset.all()

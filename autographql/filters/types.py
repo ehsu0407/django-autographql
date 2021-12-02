@@ -36,8 +36,8 @@ class ModelAutoFilterInputObjectTypeOptions(InputObjectTypeOptions):
 
 
 class AutoFilterInputObjectType(graphene.InputObjectType):
-    def get_q_lookup(self):
-        lookups = self._get_lookups()
+    def get_q_lookup(self, **kwargs):
+        lookups = self._get_lookups(**kwargs)
         lookup = self._get_q_lookup_helper(lookups)
         return lookup
 
@@ -236,13 +236,9 @@ class ModelAutoFilterInputObjectType(AutoFilterInputObjectType):
 
         raise RuntimeError('Failed to generate filter tree')
 
-    def get_q_lookup(self, user=None):
-        lookups = self._get_lookups(user=user)
-        lookup = self._get_q_lookup_helper(lookups)
-        return lookup
-
-    def _get_lookups(self, lookup_path='', user=None):
-        lookups = super()._get_lookups(lookup_path, user=user)
+    def _get_lookups(self, lookup_path='', context=None):
+        user = context.user
+        lookups = super()._get_lookups(lookup_path, context=context)
         if not lookups:
             return lookups
 
